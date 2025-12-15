@@ -46,12 +46,15 @@
         padding: 10px;
         border-radius: 8px;
         text-align: center;
-        background-color: rgba(128, 128, 128, 0.1); /* Light background for visibility */
+        /* Use default text color for background text */
+        background-color: var(--tg-text, #00000010); 
     }
     
     #next-button {
       margin-top: 20px;
-      background-color: var(--tg-theme-accent-text-color, #43a419); /* Use a distinct color for 'Next' */
+      /* Use a distinct color for 'Next' for better UX */
+      background-color: #4CAF50; 
+      color: white;
     }
   </style>
 </head>
@@ -67,7 +70,6 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 
 let currentWord = "";
-let currentOptions = [];
 
 function enableAnswerButtons() {
     const buttons = document.querySelectorAll('#options button');
@@ -115,7 +117,7 @@ tg.onEvent("message", (event) => {
     if (data.action === "feedback") {
       const buttons = document.querySelectorAll('#options button');
       
-      feedbackElement.innerHTML = data.feedback; // Use innerHTML to display the bold translation
+      feedbackElement.innerHTML = data.feedback;
       feedbackElement.style.display = 'block';
 
       // Highlight the buttons based on the feedback
@@ -155,9 +157,9 @@ tg.onEvent("message", (event) => {
         enableAnswerButtons(); // Reset and enable buttons for the new question
     }
 
+
   } catch (e) {
     console.error("Error parsing message from bot:", e, event);
-    // Optionally alert the user if an error occurs
     document.getElementById("feedback").innerText = "An error occurred. Try clicking Next Word.";
     document.getElementById("feedback").style.display = 'block';
     document.getElementById("next-button").style.display = 'block';
