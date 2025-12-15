@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>English Quiz</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 6px 0;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2 id="word">Loading…</h2>
+  <div id="options"></div>
+  <button onclick="loadQuestion()">Next ➡️</button>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+function loadQuestion() {
+  tg.sendData(JSON.stringify({ action: "get_question" }));
+}
+
+tg.onEvent("message", (event) => {
+  try {
+    const data = JSON.parse(event);
+    document.getElementById("word").innerText =
+      "Choose meaning of: " + data.word;
+
+    const options = document.getElementById("options");
+    options.innerHTML = "";
+
+    data.options.forEach((opt, i) => {
+      const b = document.createElement("button");
+      b.innerText = opt;
+      b.onclick = () => {
+        tg.sendData(JSON.stringify({ action: "answer", choice: i }));
+      };
+      options.appendChild(b);
+    });
+  } catch {}
+});
+
+loadQuestion();
+</script>
+</body>
+</html>
