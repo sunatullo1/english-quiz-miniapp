@@ -6,15 +6,52 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
+    /* Use Telegram Web App colors for theme compatibility */
+    :root {
+      --tg-bg: var(--tg-theme-bg-color, #ffffff);
+      --tg-text: var(--tg-theme-text-color, #000000);
+      --tg-button-bg: var(--tg-theme-button-color, #5288c5);
+      --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+    }
+    
     body {
       font-family: Arial, sans-serif;
       padding: 16px;
+      background-color: var(--tg-bg);
+      color: var(--tg-text);
+      transition: background-color 0.3s, color 0.3s;
     }
+    
     button {
       width: 100%;
       padding: 12px;
       margin: 6px 0;
       font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background-color: var(--tg-button-bg);
+      color: var(--tg-button-text);
+      transition: background-color 0.2s, opacity 0.2s;
+    }
+    
+    button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    #feedback {
+        margin-top: 15px;
+        font-weight: bold;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        background-color: rgba(128, 128, 128, 0.1); /* Light background for visibility */
+    }
+    
+    #next-button {
+      margin-top: 20px;
+      background-color: var(--tg-theme-accent-text-color, #43a419); /* Use a distinct color for 'Next' */
     }
   </style>
 </head>
@@ -22,37 +59,115 @@
 <body>
   <h2 id="word">Loading…</h2>
   <div id="options"></div>
-  <button onclick="loadQuestion()">Next ➡️</button>
+  <p id="feedback" style="display: none;"></p>
+  <button id="next-button" onclick="loadQuestion()" style="display: none;">Next Word ➡️</button>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+let currentWord = "";
+let currentOptions = [];
+
+function enableAnswerButtons() {
+    const buttons = document.querySelectorAll('#options button');
+    buttons.forEach(b => {
+        b.disabled = false;
+        // Reset styles to default Telegram theme colors
+        b.style.backgroundColor = 'var(--tg-button-bg)';
+        b.style.color = 'var(--tg-button-text)';
+    });
+}
+
+function disableAllButtons() {
+    document.querySelectorAll('#options button').forEach(b => b.disabled = true);
+}
+
 function loadQuestion() {
+  // Clear old state
+  document.getElementById("feedback").style.display = 'none';
+  document.getElementById("next-button").style.display = 'none';
+  document.getElementById("word").innerText = "Loading...";
+  document.getElementById("options").innerHTML = "";
+
+  // Request new question data from the bot
   tg.sendData(JSON.stringify({ action: "get_question" }));
 }
 
+function answer(choiceIndex) {
+  disableAllButtons();
+  
+  // Send the answer to the bot
+  tg.sendData(JSON.stringify({ 
+    action: "answer", 
+    choice: choiceIndex, 
+    word: currentWord // Send word for backend context
+  }));
+}
+
+// Event handler for messages from the bot (JSON string response)
 tg.onEvent("message", (event) => {
   try {
     const data = JSON.parse(event);
-    document.getElementById("word").innerText =
-      "Choose meaning of: " + data.word;
+    const feedbackElement = document.getElementById("feedback");
+    
+    // --- 1. Handle Feedback Response (after user answers) ---
+    if (data.action === "feedback") {
+      const buttons = document.querySelectorAll('#options button');
+      
+      feedbackElement.innerHTML = data.feedback; // Use innerHTML to display the bold translation
+      feedbackElement.style.display = 'block';
 
-    const options = document.getElementById("options");
-    options.innerHTML = "";
+      // Highlight the buttons based on the feedback
+      buttons.forEach((b, i) => {
+        if (i === data.correct_index) {
+          // Highlight the correct answer in green
+          b.style.backgroundColor = '#4CAF50'; /* Green */
+          b.style.color = 'white';
+        } else if (i === data.chosen_index && !data.is_correct) {
+          // Highlight the user's wrong choice in red
+          b.style.backgroundColor = '#f44336'; /* Red */
+          b.style.color = 'white';
+        }
+      });
+      
+      // Show the 'Next' button to allow fetching a new question
+      document.getElementById("next-button").style.display = 'block';
+      return; 
+    }
+    
+    // --- 2. Handle New Question Data (after loading) ---
+    if (data.action === "new_question") {
+        currentWord = data.word;
+        
+        document.getElementById("word").innerText = "Choose meaning of: " + data.word;
 
-    data.options.forEach((opt, i) => {
-      const b = document.createElement("button");
-      b.innerText = opt;
-      b.onclick = () => {
-        tg.sendData(JSON.stringify({ action: "answer", choice: i }));
-      };
-      options.appendChild(b);
-    });
-  } catch {}
+        const optionsDiv = document.getElementById("options");
+        optionsDiv.innerHTML = "";
+
+        data.options.forEach((opt, i) => {
+          const b = document.createElement("button");
+          b.innerText = opt;
+          b.onclick = () => answer(i); 
+          optionsDiv.appendChild(b);
+        });
+        
+        enableAnswerButtons(); // Reset and enable buttons for the new question
+    }
+
+  } catch (e) {
+    console.error("Error parsing message from bot:", e, event);
+    // Optionally alert the user if an error occurs
+    document.getElementById("feedback").innerText = "An error occurred. Try clicking Next Word.";
+    document.getElementById("feedback").style.display = 'block';
+    document.getElementById("next-button").style.display = 'block';
+  }
 });
 
-loadQuestion();
+// Load the first question when the app starts
+tg.ready(() => {
+  loadQuestion();
+});
 </script>
 </body>
 </html>
